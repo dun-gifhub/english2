@@ -914,18 +914,56 @@ app.post('/api/assignments', async (req, res) => {
   }
 });
 
-app.delete('/api/assignments/:id', async (req, res) => {
+app.delete('/api/assignments', async (_req, res) => {
   try {
-    const { id } = req.params;
     if (pool && getDatabaseStatus().isConnected) {
       try {
-        await pool.query(`DELETE FROM assignments WHERE id = $1`, [id]);
+        await pool.query(`DELETE FROM assignments`);
       } catch (err: any) {
-        console.warn('[Server] DB assignment delete failed:', err.message);
+        console.warn('[Server] DB clear assignments failed:', err.message);
       }
     }
-    memAssignments.delete(id);
-    res.json({ success: true, id });
+    memAssignments.clear();
+    res.json({ success: true, message: 'Đã xóa tất cả đề thi.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/assignments/batch', async (req, res) => {
+  try {
+    const list = Array.isArray(req.body) ? req.body : req.body.assignments || [];
+    if (!Array.isArray(list) || list.length === 0) {
+      return res.json({ success: true, count: 0 });
+    }
+    if (pool && getDatabaseStatus().isConnected) {
+      for (const item of list) {
+        try {
+          await pool.query(
+            `INSERT INTO assignments (id, title, grade, description, questions)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (id) DO UPDATE SET
+              title = EXCLUDED.title,
+              grade = EXCLUDED.grade,
+              description = EXCLUDED.description,
+              questions = EXCLUDED.questions`,
+            [
+              item.id,
+              item.title,
+              item.grade || 10,
+              item.description || '',
+              JSON.stringify(item.questions || [])
+            ]
+          );
+        } catch (err: any) {
+          console.warn('[Server] DB batch assignment item failed:', err.message);
+        }
+      }
+    }
+    for (const item of list) {
+      memAssignments.set(item.id, item);
+    }
+    res.json({ success: true, count: list.length });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -940,11 +978,16 @@ app.get('/api/custom-words', async (_req, res) => {
         const words = result.rows.map((r) => ({
           id: r.id,
           word: r.word,
-          ipa: r.ipa,
-          meaning: r.meaning,
-          example: r.example,
-          grade: r.grade,
-          unitId: r.unit_id
+          phonetic: r.ipa || '',
+          ipa: r.ipa || '',
+          meaningVi: r.meaning || '',
+          meaning: r.meaning || '',
+          exampleEn: r.example || '',
+          exampleVi: '',
+          grade: r.grade || 10,
+          unitNumber: parseInt(r.unit_id, 10) || 1,
+          unitId: r.unit_id,
+          distractorsVi: []
         }));
         return res.json({ success: true, words });
       } catch (err: any) {
@@ -961,6 +1004,12 @@ app.post('/api/custom-words', async (req, res) => {
   try {
     const wordItem = req.body;
     let saved = false;
+    const ipa = wordItem.phonetic || wordItem.ipa || '';
+    const meaning = wordItem.meaningVi || wordItem.meaning || '';
+    const example = wordItem.exampleEn || wordItem.example || '';
+    const grade = wordItem.grade || 10;
+    const unitId = String(wordItem.unitNumber || wordItem.unitId || 1);
+
     if (pool && getDatabaseStatus().isConnected) {
       try {
         await pool.query(
@@ -975,11 +1024,11 @@ app.post('/api/custom-words', async (req, res) => {
           [
             wordItem.id,
             wordItem.word,
-            wordItem.ipa || '',
-            wordItem.meaning,
-            wordItem.example || '',
-            wordItem.grade || 10,
-            wordItem.unitId || ''
+            ipa,
+            meaning,
+            example,
+            grade,
+            unitId
           ]
         );
         saved = true;
@@ -991,6 +1040,63 @@ app.post('/api/custom-words', async (req, res) => {
       memWords.set(wordItem.id, wordItem);
     }
     res.json({ success: true, word: wordItem });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/custom-words/batch', async (req, res) => {
+  try {
+    const words = Array.isArray(req.body) ? req.body : req.body.words || [];
+    if (!Array.isArray(words) || words.length === 0) {
+      return res.json({ success: true, count: 0 });
+    }
+
+    if (pool && getDatabaseStatus().isConnected) {
+      for (const w of words) {
+        try {
+          const ipa = w.phonetic || w.ipa || '';
+          const meaning = w.meaningVi || w.meaning || '';
+          const example = w.exampleEn || w.example || '';
+          const grade = w.grade || 10;
+          const unitId = String(w.unitNumber || w.unitId || 1);
+
+          await pool.query(
+            `INSERT INTO custom_words (id, word, ipa, meaning, example, grade, unit_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             ON CONFLICT (id) DO UPDATE SET
+              word = EXCLUDED.word,
+              ipa = EXCLUDED.ipa,
+              meaning = EXCLUDED.meaning,
+              example = EXCLUDED.example,
+              grade = EXCLUDED.grade`,
+            [w.id, w.word, ipa, meaning, example, grade, unitId]
+          );
+        } catch (err: any) {
+          console.warn('[Server] DB custom-words batch item failed:', err.message);
+        }
+      }
+    }
+    for (const w of words) {
+      memWords.set(w.id, w);
+    }
+    res.json({ success: true, count: words.length });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/custom-words', async (_req, res) => {
+  try {
+    if (pool && getDatabaseStatus().isConnected) {
+      try {
+        await pool.query(`DELETE FROM custom_words`);
+      } catch (err: any) {
+        console.warn('[Server] DB clear custom-words failed:', err.message);
+      }
+    }
+    memWords.clear();
+    res.json({ success: true, message: 'Đã xóa tất cả từ vựng.' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1079,18 +1185,60 @@ app.post('/api/custom-grammar', async (req, res) => {
   }
 });
 
-app.delete('/api/custom-grammar/:id', async (req, res) => {
+app.delete('/api/custom-grammar', async (_req, res) => {
   try {
-    const { id } = req.params;
     if (pool && getDatabaseStatus().isConnected) {
       try {
-        await pool.query(`DELETE FROM custom_grammar WHERE id = $1`, [id]);
+        await pool.query(`DELETE FROM custom_grammar`);
       } catch (err: any) {
-        console.warn('[Server] DB custom-grammar delete failed:', err.message);
+        console.warn('[Server] DB clear custom-grammar failed:', err.message);
       }
     }
-    memGrammar.delete(id);
-    res.json({ success: true, id });
+    memGrammar.clear();
+    res.json({ success: true, message: 'Đã xóa tất cả ngữ pháp.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/custom-grammar/batch', async (req, res) => {
+  try {
+    const list = Array.isArray(req.body) ? req.body : req.body.grammar || [];
+    if (!Array.isArray(list) || list.length === 0) {
+      return res.json({ success: true, count: 0 });
+    }
+    if (pool && getDatabaseStatus().isConnected) {
+      for (const item of list) {
+        try {
+          await pool.query(
+            `INSERT INTO custom_grammar (id, title, grade, structure, usage, example, exercise)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             ON CONFLICT (id) DO UPDATE SET
+              title = EXCLUDED.title,
+              grade = EXCLUDED.grade,
+              structure = EXCLUDED.structure,
+              usage = EXCLUDED.usage,
+              example = EXCLUDED.example,
+              exercise = EXCLUDED.exercise`,
+            [
+              item.id,
+              item.title,
+              item.grade || 10,
+              item.structure || item.formula || '',
+              item.usage || item.explanationVi || '',
+              item.example || item.exampleEn || '',
+              JSON.stringify(item.exercise || null)
+            ]
+          );
+        } catch (err: any) {
+          console.warn('[Server] DB batch custom-grammar item failed:', err.message);
+        }
+      }
+    }
+    for (const item of list) {
+      memGrammar.set(item.id, item);
+    }
+    res.json({ success: true, count: list.length });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1098,14 +1246,40 @@ app.delete('/api/custom-grammar/:id', async (req, res) => {
 
 // ----------------- VITE / STATIC SERVING ----------------- //
 async function startServer() {
-  if (!isProduction) {
+  const distPath = path.resolve(__dirname, 'dist');
+  const distIndexPath = path.join(distPath, 'index.html');
+  const hasDist = fs.existsSync(distIndexPath);
+
+  if (isProduction && hasDist) {
+    console.log('[Server] Đang phục vụ gói tĩnh Production từ:', distPath);
+    app.use(express.static(distPath));
+    app.use((req, res, next) => {
+      if (req.method === 'GET' && !req.path.startsWith('/api')) {
+        return res.sendFile(distIndexPath, (err) => {
+          if (err) {
+            console.error('[Server] Lỗi gửi dist/index.html:', err);
+            next(err);
+          }
+        });
+      }
+      next();
+    });
+  } else {
+    if (isProduction) {
+      console.warn('[Server] ⚠️ CẢNH BÁO: Không tìm thấy dist/index.html trên máy chủ Render.');
+      console.warn('[Server] -> Đang tự động kích hoạt Vite on-the-fly middleware để ứng dụng hoạt động ngay mà không bị lỗi ENOENT!');
+      console.warn('[Server] -> Mẹo: Trên Render Dashboard, bạn có thể chỉnh Build Command thành: npm install && npm run build để tối ưu tốc độ tải.');
+    } else {
+      console.log('[Server] Đang chạy chế độ Development với Vite middleware.');
+    }
+
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true }
     });
     app.use(vite.middlewares);
     app.use(async (req, res, next) => {
-      if (req.method !== 'GET') return next();
+      if (req.method !== 'GET' || req.path.startsWith('/api')) return next();
       const url = req.originalUrl;
       try {
         let template = await fs.promises.readFile(path.resolve(__dirname, 'index.html'), 'utf-8');
@@ -1114,15 +1288,6 @@ async function startServer() {
       } catch (e) {
         next(e);
       }
-    });
-  } else {
-    const distPath = path.resolve(__dirname, 'dist');
-    app.use(express.static(distPath));
-    app.use((req, res, next) => {
-      if (req.method === 'GET') {
-        return res.sendFile(path.join(distPath, 'index.html'));
-      }
-      next();
     });
   }
 

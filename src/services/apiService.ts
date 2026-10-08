@@ -135,6 +135,28 @@ export const apiService = {
     } catch {}
   },
 
+  async clearAllAssignments(): Promise<boolean> {
+    try {
+      const res = await fetch('/api/assignments', { method: 'DELETE' });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  async saveAssignmentsBatch(assignments: TeacherAssignment[]): Promise<boolean> {
+    try {
+      const res = await fetch('/api/assignments/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(assignments)
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
   async getCustomWords(): Promise<WordItem[]> {
     try {
       const res = await fetch('/api/custom-words');
@@ -156,10 +178,32 @@ export const apiService = {
     } catch {}
   },
 
+  async saveCustomWordsBatch(words: WordItem[]): Promise<boolean> {
+    try {
+      const res = await fetch('/api/custom-words/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(words)
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
   async deleteCustomWord(id: string): Promise<void> {
     try {
       await fetch(`/api/custom-words/${id}`, { method: 'DELETE' });
     } catch {}
+  },
+
+  async clearAllCustomWords(): Promise<boolean> {
+    try {
+      const res = await fetch('/api/custom-words', { method: 'DELETE' });
+      return res.ok;
+    } catch {
+      return false;
+    }
   },
 
   async getCustomGrammar(): Promise<GrammarLesson[]> {
@@ -183,10 +227,32 @@ export const apiService = {
     } catch {}
   },
 
+  async saveCustomGrammarBatch(lessons: GrammarLesson[]): Promise<boolean> {
+    try {
+      const res = await fetch('/api/custom-grammar/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(lessons)
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
   async deleteCustomGrammar(id: string): Promise<void> {
     try {
       await fetch(`/api/custom-grammar/${id}`, { method: 'DELETE' });
     } catch {}
+  },
+
+  async clearAllCustomGrammar(): Promise<boolean> {
+    try {
+      const res = await fetch('/api/custom-grammar', { method: 'DELETE' });
+      return res.ok;
+    } catch {
+      return false;
+    }
   },
 
   // Teacher Passcode Verification (Dynamic)

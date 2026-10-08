@@ -36,9 +36,14 @@ import {
   Server,
   Globe,
   ExternalLink,
-  Mail
+  Mail,
+  Upload
 } from 'lucide-react';
 import { apiService } from '../services/apiService';
+import { BatchWordImportModal } from '../components/BatchWordImportModal';
+import { BatchQuizImportModal } from '../components/BatchQuizImportModal';
+import { BatchGrammarImportModal } from '../components/BatchGrammarImportModal';
+import { BatchExamFileImportModal } from '../components/BatchExamFileImportModal';
 
 interface TeacherPortalScreenProps {
   onSwitchToStudentRole: () => void;
@@ -57,12 +62,17 @@ export const TeacherPortalScreen: React.FC<TeacherPortalScreenProps> = ({
     addTeacherAssignment,
     updateTeacherAssignment,
     deleteTeacherAssignment,
+    clearAllTeacherAssignments,
     addCustomWord,
+    addCustomWordsBatch,
     updateCustomWord,
     deleteCustomWord,
+    clearAllCustomWords,
     addCustomGrammar,
+    addCustomGrammarBatch,
     updateCustomGrammar,
     deleteCustomGrammar,
+    clearAllCustomGrammar,
     onlineUsers,
     onlineCount,
     onlineStudentsCount,
@@ -77,6 +87,11 @@ export const TeacherPortalScreen: React.FC<TeacherPortalScreenProps> = ({
 
   // Dialog & Modal states
   const [showManualQuizModal, setShowManualQuizModal] = useState(false);
+  const [showBatchQuizModal, setShowBatchQuizModal] = useState(false);
+  const [showBatchWordModal, setShowBatchWordModal] = useState(false);
+  const [showBatchExamFileModal, setShowBatchExamFileModal] = useState(false);
+  const [showBatchGrammarModal, setShowBatchGrammarModal] = useState(false);
+  const [showClearConfirmModal, setShowClearConfirmModal] = useState<'words' | 'quizzes' | 'grammar' | null>(null);
   const [showReputableExamModal, setShowReputableExamModal] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<TeacherAssignment | null>(null);
   const [previewAssignment, setPreviewAssignment] = useState<TeacherAssignment | null>(null);
@@ -678,7 +693,16 @@ export const TeacherPortalScreen: React.FC<TeacherPortalScreenProps> = ({
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setShowBatchExamFileModal(true)}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-linear-to-r from-[#FFD166] to-[#F77F00] text-[#0D1B2A] hover:brightness-110 transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-[#FFD166]/20"
+                title="Dán file đề thi hoặc tải file đề thi .txt"
+              >
+                <Upload size={14} />
+                <span>Dán Tệp Đề Thi (Word/File)</span>
+              </button>
+
               <button
                 onClick={() => {
                   setRepGeneratedPreview(null);
@@ -713,6 +737,18 @@ export const TeacherPortalScreen: React.FC<TeacherPortalScreenProps> = ({
                 <Plus size={14} />
                 <span>Tạo Đề Mới Thủ Công</span>
               </button>
+
+              {assignments.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowClearConfirmModal('quizzes')}
+                  className="px-3 py-2 rounded-xl text-xs font-bold bg-[#131F2E] hover:bg-[#EF476F]/20 text-[#EF476F] border border-[#EF476F]/30 transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Xóa toàn bộ đề thi hiện có"
+                >
+                  <Trash2 size={14} />
+                  <span>Xóa Tất Cả Đề Thi</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -807,23 +843,77 @@ export const TeacherPortalScreen: React.FC<TeacherPortalScreenProps> = ({
       {/* ============================================================ */}
       {activeTab === 'words' && (
         <div className="space-y-6">
+          {/* Quick Batch Import Hero Card */}
+          <div className="p-5 sm:p-6 rounded-3xl bg-linear-to-r from-[#1B263B] via-[#1E2D40] to-[#131F2E] border-2 border-[#00E5FF]/40 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="space-y-1.5 max-w-xl">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#00E5FF]/20 text-[#00E5FF] font-black text-[10px] border border-[#00E5FF]/30 uppercase tracking-wider">
+                  ⚡ Tính Năng Mới
+                </span>
+                <span className="text-xs text-[#06D6A0] font-bold">
+                  Tiết kiệm 95% thời gian soạn bài
+                </span>
+              </div>
+              <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                <span>Dán Tệp & Soạn Từ Hàng Loạt (Batch Import)</span>
+              </h3>
+              <p className="text-xs text-[#778DA9] leading-relaxed">
+                Soạn hàng chục từ vựng cùng lúc chỉ bằng 1 thao tác copy-paste từ Word, Excel, Quizlet hoặc tải file .txt/.csv. Hệ thống tự động tra cứu IPA chuẩn và sinh 3 đáp án nhiễu cho trò chơi Tap Hunter!
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setShowBatchWordModal(true)}
+                className="px-5 py-3 rounded-2xl bg-linear-to-r from-[#00E5FF] to-[#06D6A0] hover:brightness-110 text-[#0D1B2A] font-black text-xs shadow-lg shadow-[#00E5FF]/25 flex items-center gap-2 cursor-pointer transition-all"
+              >
+                <Upload size={16} />
+                <span>Mở Bộ Soạn Nhanh / Dán Tệp</span>
+              </button>
+              {customWords.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowClearConfirmModal('words')}
+                  className="px-3 py-3 rounded-2xl bg-[#131F2E] hover:bg-[#EF476F]/20 text-[#EF476F] border border-[#EF476F]/30 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Xóa toàn bộ từ vựng tự tạo"
+                >
+                  <Trash2 size={16} />
+                  <span>Xóa Tất Cả Từ</span>
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Form to Add or Edit Vocabulary */}
           <div className="p-6 rounded-3xl bg-[#1B263B] border border-[#27384E] space-y-4 shadow-xl">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Languages size={18} className="text-[#9D4EDD]" />
                 <span>
-                  {editingWord ? `Chỉnh Sửa Từ Vựng: "${editingWord.word}"` : 'Thêm Từ Vựng Mới Vào Giáo Trình Khối Lớp'}
+                  {editingWord ? `Chỉnh Sửa Từ Vựng: "${editingWord.word}"` : 'Thêm Từ Vựng Thủ Công (Từng Từ)'}
                 </span>
               </h3>
-              {editingWord && (
-                <button
-                  onClick={handleCancelEditWord}
-                  className="text-xs text-[#EF476F] hover:underline font-bold"
-                >
-                  Hủy Chỉnh Sửa
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {!editingWord && (
+                  <button
+                    type="button"
+                    onClick={() => setShowBatchWordModal(true)}
+                    className="text-xs text-[#00E5FF] hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    <Upload size={13} />
+                    <span>Dán danh sách nhiều từ cùng lúc</span>
+                  </button>
+                )}
+                {editingWord && (
+                  <button
+                    onClick={handleCancelEditWord}
+                    className="text-xs text-[#EF476F] hover:underline font-bold"
+                  >
+                    Hủy Chỉnh Sửa
+                  </button>
+                )}
+              </div>
             </div>
 
             <form onSubmit={handleSaveWord} className="space-y-4">
@@ -1035,23 +1125,77 @@ export const TeacherPortalScreen: React.FC<TeacherPortalScreenProps> = ({
       {/* ============================================================ */}
       {activeTab === 'grammar' && (
         <div className="space-y-6">
+          {/* Quick Batch Import Grammar Hero Card */}
+          <div className="p-5 sm:p-6 rounded-3xl bg-linear-to-r from-[#1B263B] via-[#1E2D40] to-[#131F2E] border-2 border-[#9D4EDD]/40 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="space-y-1.5 max-w-xl">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#9D4EDD]/20 text-[#C77DFF] font-black text-[10px] border border-[#9D4EDD]/30 uppercase tracking-wider">
+                  ⚡ Tính Năng Mới
+                </span>
+                <span className="text-xs text-[#06D6A0] font-bold">
+                  Soạn giáo án siêu tốc
+                </span>
+              </div>
+              <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                <span>Dán Tệp & Soạn Ngữ Pháp Hàng Loạt (Batch Import)</span>
+              </h3>
+              <p className="text-xs text-[#778DA9] leading-relaxed">
+                Dán toàn bộ các bài học ngữ pháp (tên chuyên đề, công thức, cách dùng, ví dụ, lưu ý) từ Word hoặc tải tệp .txt/.json để nạp toàn bộ giáo trình cùng lúc!
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setShowBatchGrammarModal(true)}
+                className="px-5 py-3 rounded-2xl bg-linear-to-r from-[#9D4EDD] to-[#7B2CBF] hover:brightness-110 text-white font-black text-xs shadow-lg shadow-[#9D4EDD]/25 flex items-center gap-2 cursor-pointer transition-all"
+              >
+                <Upload size={16} />
+                <span>Mở Bộ Soạn Ngữ Pháp / Dán Tệp</span>
+              </button>
+              {customGrammar.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowClearConfirmModal('grammar')}
+                  className="px-3 py-3 rounded-2xl bg-[#131F2E] hover:bg-[#EF476F]/20 text-[#EF476F] border border-[#EF476F]/30 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Xóa toàn bộ ngữ pháp tự tạo"
+                >
+                  <Trash2 size={16} />
+                  <span>Xóa Tất Cả Ngữ Pháp</span>
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Form to Add or Edit Grammar */}
           <div className="p-6 rounded-3xl bg-[#1B263B] border border-[#27384E] space-y-4 shadow-xl">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <BookOpen size={18} className="text-[#9D4EDD]" />
                 <span>
-                  {editingGrammar ? `Chỉnh Sửa Ngữ Pháp: "${editingGrammar.title}"` : 'Thêm Chuyên Đề Ngữ Pháp Mới'}
+                  {editingGrammar ? `Chỉnh Sửa Ngữ Pháp: "${editingGrammar.title}"` : 'Thêm Chuyên Đề Ngữ Pháp Thủ Công'}
                 </span>
               </h3>
-              {editingGrammar && (
-                <button
-                  onClick={handleCancelEditGrammar}
-                  className="text-xs text-[#EF476F] hover:underline font-bold"
-                >
-                  Hủy Chỉnh Sửa
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {!editingGrammar && (
+                  <button
+                    type="button"
+                    onClick={() => setShowBatchGrammarModal(true)}
+                    className="text-xs text-[#C77DFF] hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    <Upload size={13} />
+                    <span>Dán danh sách nhiều bài ngữ pháp</span>
+                  </button>
+                )}
+                {editingGrammar && (
+                  <button
+                    onClick={handleCancelEditGrammar}
+                    className="text-xs text-[#EF476F] hover:underline font-bold"
+                  >
+                    Hủy Chỉnh Sửa
+                  </button>
+                )}
+              </div>
             </div>
 
             <form onSubmit={handleSaveGrammar} className="space-y-4">
@@ -2364,30 +2508,40 @@ export const TeacherPortalScreen: React.FC<TeacherPortalScreenProps> = ({
 
               {/* Questions list with edit & delete controls */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-[#9D4EDD]">
                     Danh Sách Câu Hỏi ({quizQuestions.length})
                   </h4>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setQuizQuestions([
-                        ...quizQuestions,
-                        {
-                          id: `q_${Date.now()}_${Math.random()}`,
-                          question: '',
-                          options: ['', '', '', ''],
-                          correctIndex: 0,
-                          explanation: '',
-                          topic: 'Ngữ pháp'
-                        }
-                      ]);
-                    }}
-                    className="text-xs text-[#00E5FF] hover:underline font-bold flex items-center gap-1 cursor-pointer"
-                  >
-                    <Plus size={13} />
-                    <span>Thêm Câu Hỏi Mới</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowBatchQuizModal(true)}
+                      className="px-2.5 py-1 rounded-lg bg-[#9D4EDD]/20 hover:bg-[#9D4EDD]/35 text-[#C77DFF] border border-[#9D4EDD]/40 text-xs font-bold flex items-center gap-1 cursor-pointer transition-all"
+                    >
+                      <Sparkles size={13} />
+                      <span>⚡ Dán Đề Nhanh Từ Word</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuizQuestions([
+                          ...quizQuestions,
+                          {
+                            id: `q_${Date.now()}_${Math.random()}`,
+                            question: '',
+                            options: ['', '', '', ''],
+                            correctIndex: 0,
+                            explanation: '',
+                            topic: 'Ngữ pháp'
+                          }
+                        ]);
+                      }}
+                      className="text-xs text-[#00E5FF] hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus size={13} />
+                      <span>Thêm Câu Mới</span>
+                    </button>
+                  </div>
                 </div>
 
                 {quizQuestions.map((q, qIndex) => (
@@ -2763,6 +2917,113 @@ export const TeacherPortalScreen: React.FC<TeacherPortalScreenProps> = ({
                 className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#00E5FF] hover:bg-[#38bdf8] text-[#0D1B2A] transition-all cursor-pointer"
               >
                 Đã Hiểu & Đóng Hướng Dẫn
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Batch Vocabulary Import Modal */}
+      <BatchWordImportModal
+        isOpen={showBatchWordModal}
+        onClose={() => setShowBatchWordModal(false)}
+        onImportWords={addCustomWordsBatch}
+        defaultGrade={typeof filterGrade === 'number' ? filterGrade : (wordGrade || 10)}
+        defaultUnit={wordUnit || 1}
+      />
+
+      {/* Batch Quiz Questions Import Modal */}
+      <BatchQuizImportModal
+        isOpen={showBatchQuizModal}
+        onClose={() => setShowBatchQuizModal(false)}
+        onImportQuestions={(newQuestions) => {
+          setQuizQuestions((prev) => [
+            ...prev.filter((q) => q.question.trim().length > 0),
+            ...newQuestions
+          ]);
+        }}
+      />
+
+      {/* Batch Grammar Import Modal */}
+      <BatchGrammarImportModal
+        isOpen={showBatchGrammarModal}
+        onClose={() => setShowBatchGrammarModal(false)}
+        onImportGrammar={addCustomGrammarBatch}
+        defaultGrade={typeof filterGrade === 'number' ? filterGrade : (grammarGrade || 10)}
+      />
+
+      {/* Batch Exam File Import Modal */}
+      <BatchExamFileImportModal
+        isOpen={showBatchExamFileModal}
+        onClose={() => setShowBatchExamFileModal(false)}
+        onImportExam={(newAssignment) => {
+          addTeacherAssignment(newAssignment);
+        }}
+        defaultGrade={typeof filterGrade === 'number' ? filterGrade : (quizGrade || 10)}
+      />
+
+      {/* Safe Clear Confirmation Dialog Modal */}
+      {showClearConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xs">
+          <div className="relative w-full max-w-md p-6 rounded-3xl bg-[#1B263B] border border-[#EF476F]/50 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-[#EF476F]">
+              <div className="w-12 h-12 rounded-2xl bg-[#EF476F]/10 flex items-center justify-center border border-[#EF476F]/30 shrink-0">
+                <AlertTriangle size={26} />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-white">
+                  {showClearConfirmModal === 'words' && 'Xác Nhận Xóa Tất Cả Từ Mới?'}
+                  {showClearConfirmModal === 'quizzes' && 'Xác Nhận Xóa Tất Cả Đề Thi?'}
+                  {showClearConfirmModal === 'grammar' && 'Xác Nhận Xóa Tất Cả Ngữ Pháp?'}
+                </h3>
+                <p className="text-xs text-[#778DA9]">
+                  Hành động này không thể hoàn tác!
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-[#131F2E] border border-[#27384E] text-xs text-[#ADB5BD] space-y-1.5">
+              {showClearConfirmModal === 'words' && (
+                <p>
+                  Bạn có chắc chắn muốn xóa toàn bộ <strong className="text-white">{customWords.length}</strong> từ vựng tự tạo do giáo viên đã thêm? Kho từ điển mặc định của trường THPT Lương Phú vẫn được giữ nguyên.
+                </p>
+              )}
+              {showClearConfirmModal === 'quizzes' && (
+                <p>
+                  Bạn có chắc chắn muốn xóa toàn bộ <strong className="text-white">{assignments.length}</strong> đề thi & bài tập trắc nghiệm đã tạo trên hệ thống?
+                </p>
+              )}
+              {showClearConfirmModal === 'grammar' && (
+                <p>
+                  Bạn có chắc chắn muốn xóa toàn bộ <strong className="text-white">{customGrammar.length}</strong> chuyên đề ngữ pháp do giáo viên đã thêm?
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowClearConfirmModal(null)}
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold text-[#778DA9] hover:text-white bg-[#131F2E] hover:bg-[#27384E] transition-all cursor-pointer"
+              >
+                Hủy Bỏ
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const target = showClearConfirmModal;
+                  setShowClearConfirmModal(null);
+                  if (target === 'words') {
+                    await clearAllCustomWords();
+                  } else if (target === 'quizzes') {
+                    await clearAllTeacherAssignments();
+                  } else if (target === 'grammar') {
+                    await clearAllCustomGrammar();
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl text-xs font-black text-white bg-[#EF476F] hover:bg-[#d9385d] transition-all shadow-lg shadow-[#EF476F]/25 cursor-pointer"
+              >
+                Xác Nhận Xóa Hết
               </button>
             </div>
           </div>

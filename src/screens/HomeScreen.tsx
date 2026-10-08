@@ -17,6 +17,7 @@ import {
   Award,
   Activity
 } from 'lucide-react';
+import { UnitWordPreviewModal } from '../components/UnitWordPreviewModal';
 
 interface HomeScreenProps {
   onPlayUnit: (unit: UnitTopic) => void;
@@ -42,6 +43,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [activeSection, setActiveSection] = useState<'words' | 'grammar' | 'assignments'>('words');
   const [copiedCode, setCopiedCode] = useState(false);
   const [selectedGrammar, setSelectedGrammar] = useState<GrammarLesson | null>(null);
+  const [previewUnit, setPreviewUnit] = useState<UnitTopic | null>(null);
 
   const currentSubject = subjects[0];
   const schoolYear = getCurrentSchoolYearString();
@@ -306,11 +308,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   </div>
                 </div>
 
-                {/* Play Button */}
-                <div className="mt-5 pt-3 border-t border-[#27384E]/60 flex items-center justify-between gap-3">
-                  <span className="text-xs font-semibold text-[#778DA9]">
-                    {unit.words.length} từ vựng phản xạ
-                  </span>
+                {/* Play Button & Vocabulary Preview */}
+                <div className="mt-5 pt-3 border-t border-[#27384E]/60 flex items-center justify-between gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewUnit(unit)}
+                    className="px-3 py-2 rounded-xl text-xs font-bold bg-[#131F2E] hover:bg-[#1E2D40] text-[#00E5FF] border border-[#27384E] hover:border-[#00E5FF]/40 transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <BookOpen size={13} />
+                    <span>Xem Trước ({unit.words.length} Từ)</span>
+                  </button>
 
                   <button
                     onClick={() => onPlayUnit(unit)}
@@ -321,7 +328,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     }`}
                   >
                     <Play size={14} className="fill-current" />
-                    <span>VÀO SĂN TỪ (TAP GAME)</span>
+                    <span>VÀO SĂN TỪ</span>
                   </button>
                 </div>
               </div>
@@ -484,6 +491,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </div>
         </div>
       )}
+
+      {/* Unit Vocabulary Preview Modal */}
+      <UnitWordPreviewModal
+        unit={previewUnit}
+        isOpen={!!previewUnit}
+        onClose={() => setPreviewUnit(null)}
+        onStartGame={(u) => {
+          setPreviewUnit(null);
+          onPlayUnit(u);
+        }}
+      />
     </div>
   );
 };

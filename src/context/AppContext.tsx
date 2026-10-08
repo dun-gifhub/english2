@@ -89,14 +89,20 @@ interface AppContextType {
   addXpAndScore: (pointsEarned: number) => void;
   signOut: () => Promise<void>;
   addTeacherAssignment: (assignment: TeacherAssignment) => void;
+  addTeacherAssignmentsBatch: (assignments: TeacherAssignment[]) => Promise<number>;
   updateTeacherAssignment: (assignment: TeacherAssignment) => void;
   deleteTeacherAssignment: (id: string) => void;
+  clearAllTeacherAssignments: () => Promise<void>;
   addCustomWord: (word: Omit<WordItem, 'id'>) => void;
+  addCustomWordsBatch: (words: Omit<WordItem, 'id'>[]) => Promise<number>;
   updateCustomWord: (word: WordItem) => void;
   deleteCustomWord: (id: string) => void;
+  clearAllCustomWords: () => Promise<void>;
   addCustomGrammar: (lesson: Omit<GrammarLesson, 'id'>) => void;
+  addCustomGrammarBatch: (lessons: Omit<GrammarLesson, 'id'>[]) => Promise<number>;
   updateCustomGrammar: (lesson: GrammarLesson) => void;
   deleteCustomGrammar: (id: string) => void;
+  clearAllCustomGrammar: () => Promise<void>;
   addFriendByCode: (code: string) => boolean;
   clearFriendMessage: () => void;
   createRoom: (hostName: string) => CallRoom;
@@ -670,6 +676,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const clearAllTeacherAssignments = async () => {
+    setAssignments([]);
+    try { localStorage.removeItem(LOCAL_STORAGE_ASSIGNMENTS_KEY); } catch {}
+    apiService.clearAllAssignments().catch(() => {});
+  };
+
+  const addTeacherAssignmentsBatch = async (assignmentsList: TeacherAssignment[]): Promise<number> => {
+    if (!assignmentsList.length) return 0;
+    setAssignments(prev => {
+      const updated = [...assignmentsList, ...prev];
+      try { localStorage.setItem(LOCAL_STORAGE_ASSIGNMENTS_KEY, JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+    apiService.saveAssignmentsBatch(assignmentsList).catch(() => {});
+    return assignmentsList.length;
+  };
+
   const addCustomWord = (wordData: Omit<WordItem, 'id'>) => {
     const id = `word_${Date.now()}`;
     const newWord: WordItem = { id, ...wordData };
@@ -687,6 +710,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         createdAt: serverTimestamp()
       }).catch(() => {});
     }
+  };
+
+  const addCustomWordsBatch = async (wordsData: Omit<WordItem, 'id'>[]): Promise<number> => {
+    if (!wordsData.length) return 0;
+    const now = Date.now();
+    const newWords: WordItem[] = wordsData.map((item, idx) => ({
+      id: `word_${now}_${idx}_${Math.random().toString(36).substring(2, 7)}`,
+      ...item
+    }));
+
+    setCustomWords(prev => {
+      const updated = [...newWords, ...prev];
+      try { localStorage.setItem(LOCAL_STORAGE_CUSTOM_WORDS_KEY, JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+
+    apiService.saveCustomWordsBatch(newWords).catch(() => {});
+
+    const firestore = db;
+    if (firestore) {
+      newWords.forEach(w => {
+        setDoc(doc(firestore, 'customWords', w.id), {
+          ...w,
+          teacherUid: currentUser?.uid || 'teacher_local',
+          createdAt: serverTimestamp()
+        }).catch(() => {});
+      });
+    }
+
+    return newWords.length;
   };
 
   const updateCustomWord = (word: WordItem) => {
@@ -717,6 +770,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (firestore) {
       deleteDoc(doc(firestore, 'customWords', id)).catch(() => {});
     }
+  };
+
+  const clearAllCustomWords = async () => {
+    setCustomWords([]);
+    try { localStorage.removeItem(LOCAL_STORAGE_CUSTOM_WORDS_KEY); } catch {}
+    apiService.clearAllCustomWords().catch(() => {});
   };
 
   const addCustomGrammar = (lessonData: Omit<GrammarLesson, 'id'>) => {
@@ -766,6 +825,42 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (firestore) {
       deleteDoc(doc(firestore, 'customGrammar', id)).catch(() => {});
     }
+  };
+
+  const clearAllCustomGrammar = async () => {
+    setCustomGrammar([]);
+    try { localStorage.removeItem(LOCAL_STORAGE_CUSTOM_GRAMMAR_KEY); } catch {}
+    apiService.clearAllCustomGrammar().catch(() => {});
+  };
+
+  const addCustomGrammarBatch = async (lessonsData: Omit<GrammarLesson, 'id'>[]): Promise<number> => {
+    if (!lessonsData.length) return 0;
+    const now = Date.now();
+    const newLessons: GrammarLesson[] = lessonsData.map((item, idx) => ({
+      id: `grammar_${now}_${idx}_${Math.random().toString(36).substring(2, 7)}`,
+      ...item
+    }));
+
+    setCustomGrammar(prev => {
+      const updated = [...newLessons, ...prev];
+      try { localStorage.setItem(LOCAL_STORAGE_CUSTOM_GRAMMAR_KEY, JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+
+    apiService.saveCustomGrammarBatch(newLessons).catch(() => {});
+
+    const firestore = db;
+    if (firestore) {
+      newLessons.forEach(l => {
+        setDoc(doc(firestore, 'customGrammar', l.id), {
+          ...l,
+          teacherUid: currentUser?.uid || 'teacher_local',
+          createdAt: serverTimestamp()
+        }).catch(() => {});
+      });
+    }
+
+    return newLessons.length;
   };
 
   const addFriendByCode = (code: string): boolean => {
@@ -989,14 +1084,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         addXpAndScore,
         signOut,
         addTeacherAssignment,
+        addTeacherAssignmentsBatch,
         updateTeacherAssignment,
         deleteTeacherAssignment,
+        clearAllTeacherAssignments,
         addCustomWord,
+        addCustomWordsBatch,
         updateCustomWord,
         deleteCustomWord,
+        clearAllCustomWords,
         addCustomGrammar,
+        addCustomGrammarBatch,
         updateCustomGrammar,
         deleteCustomGrammar,
+        clearAllCustomGrammar,
         addFriendByCode,
         clearFriendMessage,
         createRoom,

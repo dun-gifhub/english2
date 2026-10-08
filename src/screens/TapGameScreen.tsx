@@ -16,8 +16,10 @@ import {
   XCircle,
   AlertTriangle,
   Send,
-  Timer
+  Timer,
+  BookOpen
 } from 'lucide-react';
+import { UnitWordPreviewModal } from '../components/UnitWordPreviewModal';
 
 interface TapGameScreenProps {
   unit: UnitTopic;
@@ -55,6 +57,7 @@ export const TapGameScreen: React.FC<TapGameScreenProps> = ({
   const [isGameOver, setIsGameOver] = useState<boolean>(false);
   const [typedInput, setTypedInput] = useState<string>('');
   const [missedWordsList, setMissedWordsList] = useState<WordItem[]>([]);
+  const [showWordListModal, setShowWordListModal] = useState<boolean>(false);
 
   const currentWord: WordItem | undefined = words[currentWordIndex];
   const progressIntervalRef = useRef<number | null>(null);
@@ -291,9 +294,20 @@ export const TapGameScreen: React.FC<TapGameScreenProps> = ({
                   Lớp {unit.grade} • Từ {currentWordIndex + 1}/{words.length}
                 </span>
               </div>
-              <h3 className="text-sm sm:text-base font-black text-white truncate max-w-[200px] sm:max-w-xs mt-0.5">
-                {unit.title}
-              </h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm sm:text-base font-black text-white truncate max-w-[180px] sm:max-w-xs mt-0.5">
+                  {unit.title}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowWordListModal(true)}
+                  className="px-2 py-1 rounded-xl bg-[#131F2E] hover:bg-[#27384E] text-[#00E5FF] hover:text-white border border-[#00E5FF]/30 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                  title="Xem toàn bộ danh sách từ mới của Unit"
+                >
+                  <BookOpen size={12} />
+                  <span>Xem Từ Mới ({words.length})</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -585,6 +599,17 @@ export const TapGameScreen: React.FC<TapGameScreenProps> = ({
           </div>
         </div>
       )}
+
+      {/* Unit Vocabulary Preview Modal */}
+      <UnitWordPreviewModal
+        unit={unit}
+        isOpen={showWordListModal}
+        onClose={() => setShowWordListModal(false)}
+        onStartGame={() => {
+          setShowWordListModal(false);
+          // If already on game screen, just resume
+        }}
+      />
     </div>
   );
 };
