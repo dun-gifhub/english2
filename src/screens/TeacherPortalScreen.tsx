@@ -2721,18 +2721,37 @@ export const TeacherPortalScreen: React.FC<TeacherPortalScreenProps> = ({
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-[#1B263B] border border-[#27384E] space-y-1.5">
+              <div className="p-3.5 rounded-2xl bg-[#1B263B] border border-[#27384E] space-y-2.5">
                 <div className="flex items-center gap-2 font-bold text-white">
                   <span className="w-5 h-5 rounded-full bg-[#00E5FF] text-[#0D1B2A] flex items-center justify-center text-[11px] font-black">4</span>
-                  <span>Biến môi trường (Environment Variables)</span>
+                  <span>Biến môi trường Render & Cơ sở dữ liệu Neon (Environment Variables)</span>
                 </div>
-                <div className="pl-7 space-y-1 text-[#ADB5BD]">
+                <div className="pl-7 space-y-2 text-[#ADB5BD]">
                   <p>
                     • <span className="font-mono text-[#00E5FF]">NODE_ENV</span> = <span className="font-mono text-white">production</span>
                   </p>
-                  <p>
-                    • <span className="font-mono text-[#00E5FF]">DATABASE_URL</span> = Đường dẫn kết nối Neon PostgreSQL của bạn (nếu có để lưu trữ vĩnh viễn dữ liệu điểm số, tài khoản).
-                  </p>
+                  <div>
+                    <p className="mb-1">
+                      • <span className="font-mono text-[#00E5FF]">DATABASE_URL</span> = Chuỗi kết nối Neon PostgreSQL (Lưu trữ vĩnh viễn):
+                    </p>
+                    <div className="p-3 rounded-xl bg-[#131F2E] border border-[#27384E] text-[11px] space-y-1.5">
+                      <div className="text-white font-semibold flex items-center gap-1.5">
+                        <span className="text-[#06D6A0]">✓ Cách lấy từ Neon (neon.tech):</span>
+                      </div>
+                      <p>
+                        1. Vào <a href="https://console.neon.tech" target="_blank" rel="noreferrer" className="text-[#00E5FF] underline font-bold">console.neon.tech</a> → Tạo Project miễn phí (ví dụ: <span className="text-white font-mono">tap-hunter</span>).
+                      </p>
+                      <p>
+                        2. Tại màn hình <strong>Connection Details</strong> → Chọn <strong>Postgres URL</strong> (pooled).
+                      </p>
+                      <p className="font-mono text-[#FFD166] break-all bg-[#0D1B2A] p-2 rounded-lg border border-[#27384E]">
+                        postgresql://neondb_owner:mật_khẩu@ep-xyz-123456.us-east-2.aws.neon.tech/neondb?sslmode=require
+                      </p>
+                      <p className="text-[#FF6B6B] font-medium pt-1">
+                        ⚠️ <strong>Lưu ý:</strong> Tuyệt đối không dùng chữ mẫu <span className="font-mono">endpoint.neon.tech</span> (sẽ báo lỗi <span className="font-mono">ENOTFOUND endpoint.neon.tech</span> vì đây chỉ là chữ ví dụ). Phải copy đường dẫn thật từ trang Neon của bạn!
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

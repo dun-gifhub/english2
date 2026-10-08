@@ -1,32 +1,59 @@
 import { Pool } from 'pg';
 
 // Support DATABASE_URL for Neon PostgreSQL (e.g. postgresql://user:pass@ep-xyz.us-east-2.aws.neon.tech/neondb?sslmode=require)
-const connectionString = process.env.DATABASE_URL;
+let rawConnectionString = (process.env.DATABASE_URL || '').trim();
 
 let pool: Pool | null = null;
 let isNeonConnected = false;
 let connectionErrorMessage: string | null = null;
+let isPlaceholder = false;
 
-if (connectionString) {
+// Check if user set the example placeholder from .env.example
+if (
+  rawConnectionString &&
+  (rawConnectionString.includes('endpoint.neon.tech') ||
+   rawConnectionString.includes('user:password@') ||
+   rawConnectionString.includes('ep-example'))
+) {
+  isPlaceholder = true;
+  connectionErrorMessage = 'DATABASE_URL đang sử dụng tên miền ví dụ ("endpoint.neon.tech"). Vui lòng vào console.neon.tech, copy chuỗi kết nối thực tế của dự án bạn và cập nhật vào biến môi trường trên Render.';
+  console.warn('⚠️ [Neon DB] CẢNH BÁO CẤU HÌNH:');
+  console.warn('   DATABASE_URL trên máy chủ đang chứa hostname mẫu ("endpoint.neon.tech").');
+  console.warn('   -> Hãy vào https://console.neon.tech -> Copy Connection String thật (ví dụ: postgresql://neondb_owner:***@ep-xyz.aws.neon.tech/neondb?sslmode=require)');
+  console.warn('   -> Cập nhật vào mục Environment của Render Web Service.');
+  console.warn('   -> Ứng dụng hiện đang chạy an toàn bằng bộ lưu trữ bộ nhớ (in-memory) để đảm bảo không bị gián đoạn!');
+} else if (rawConnectionString) {
   try {
+    // Format connection string with uselibpqcompat to suppress node-pg warning:
+    // "SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'"
+    let cleanUrl = rawConnectionString;
+    if (cleanUrl.includes('sslmode=require') && !cleanUrl.includes('uselibpqcompat')) {
+      cleanUrl += cleanUrl.includes('?') ? '&uselibpqcompat=true' : '?uselibpqcompat=true';
+    }
+
     pool = new Pool({
-      connectionString,
+      connectionString: cleanUrl,
       ssl: {
         rejectUnauthorized: false
       },
       max: 10,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000
+      connectionTimeoutMillis: 7000
     });
   } catch (err: any) {
     console.error('Failed to initialize Neon PostgreSQL pool:', err);
     connectionErrorMessage = err.message || 'Database initialization error';
   }
 } else {
-  connectionErrorMessage = 'DATABASE_URL is not set. Using local in-memory fallback. Add DATABASE_URL to connect to Neon PostgreSQL.';
+  connectionErrorMessage = 'DATABASE_URL chưa được thiết lập. Ứng dụng đang hoạt động bằng bộ nhớ cục bộ. Thêm DATABASE_URL để kết nối Neon PostgreSQL.';
 }
 
 export async function initDatabase() {
+  if (isPlaceholder) {
+    console.log('[Neon DB] Bỏ qua kết nối Neon vì hostname là placeholder ví dụ. Đang chạy fallback an toàn.');
+    return false;
+  }
+
   if (!pool) {
     console.log('[Neon DB] No DATABASE_URL provided. App running with local fallback.');
     return false;
@@ -131,9 +158,10 @@ export async function initDatabase() {
 
 export function getDatabaseStatus() {
   return {
-    isNeonConfigured: !!connectionString,
+    isNeonConfigured: !!rawConnectionString && !isPlaceholder,
     isConnected: isNeonConnected,
-    isNeonUrl: connectionString ? connectionString.includes('neon.tech') : false,
+    isNeonUrl: rawConnectionString ? rawConnectionString.includes('neon.tech') : false,
+    isPlaceholder,
     message: isNeonConnected
       ? 'Đã kết nối cơ sở dữ liệu Neon PostgreSQL đám mây thành công!'
       : connectionErrorMessage || 'Chưa kết nối Neon database.'

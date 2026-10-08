@@ -31,10 +31,10 @@ export const AuthScreen: React.FC = () => {
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
-  const [className, setClassName] = useState('10A1');
+  const [className, setClassName] = useState('');
   const [baseGrade, setBaseGrade] = useState(10);
   const [academicYear, setAcademicYear] = useState(2026);
-  const [department, setDepartment] = useState('Tổ Ngoại Ngữ');
+  const [department, setDepartment] = useState('');
 
   // Teacher pending approval modal state
   const [teacherPendingInfo, setTeacherPendingInfo] = useState<{
