@@ -53,13 +53,22 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
-  const navItems = [
+  const baseNavItems = [
     { id: 'home', label: 'Học Tập', icon: BookOpen },
     { id: 'dict', label: 'Tra Từ', icon: Languages },
-    { id: 'teacher', label: isAdmin ? 'Cổng Admin' : 'Giáo Viên', icon: isAdmin ? Shield : GraduationCap },
     { id: 'friends', label: 'Bạn Bè', icon: Users },
     { id: 'leaderboard', label: 'Bảng Vàng', icon: Trophy }
   ];
+
+  const navItems = (isTeacher || isAdmin)
+    ? [
+        { id: 'home', label: 'Học Tập', icon: BookOpen },
+        { id: 'dict', label: 'Tra Từ', icon: Languages },
+        { id: 'teacher', label: isAdmin ? 'Cổng Admin' : 'Giáo Viên', icon: isAdmin ? Shield : GraduationCap },
+        { id: 'friends', label: 'Bạn Bè', icon: Users },
+        { id: 'leaderboard', label: 'Bảng Vàng', icon: Trophy }
+      ]
+    : baseNavItems;
 
   return (
     <>
@@ -167,21 +176,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <Shield size={13} />
                 <span>Admin</span>
               </button>
-            ) : (
-              /* Role switch chip */
+            ) : isTeacher ? (
+              /* Role switch chip only for teachers */
               <button
                 onClick={handleRoleToggle}
-                className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer border ${
-                  isTeacher
-                    ? 'bg-[#9D4EDD] text-white border-[#9D4EDD] shadow-md shadow-[#9D4EDD]/30'
-                    : 'bg-[#1E2D40] text-[#00E5FF] border-[#2D3F56] hover:border-[#00E5FF]/50'
-                }`}
-                title="Chuyển đổi vai trò Giáo Viên / Học Sinh"
+                className="px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer border bg-[#9D4EDD] text-white border-[#9D4EDD] shadow-md shadow-[#9D4EDD]/30"
+                title="Góc làm việc Giáo Viên"
               >
                 <Sparkles size={13} />
-                <span>{isTeacher ? 'Góc GV' : 'Góc HS'}</span>
+                <span>Góc GV</span>
               </button>
-            )}
+            ) : null}
 
             {/* Streak badge */}
             <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-[#1E2D40] border border-[#2D3F56] text-[#FFD166] text-xs font-bold">
@@ -212,7 +217,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Mobile Bottom Navigation Bar */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#1B263B]/95 backdrop-blur-lg border-t border-[#27384E] px-2 py-1.5 shadow-2xl">
-        <div className="grid grid-cols-5 gap-1">
+        <div className={`grid ${navItems.length === 5 ? 'grid-cols-5' : 'grid-cols-4'} gap-1`}>
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentTab === item.id;
@@ -220,11 +225,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 key={item.id}
                 onClick={() => {
-                  if (item.id === 'teacher' && !isTeacher) {
-                    onRequestTeacherModal();
-                  } else {
-                    onTabChange(item.id);
-                  }
+                  onTabChange(item.id);
                 }}
                 className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all cursor-pointer ${
                   isActive

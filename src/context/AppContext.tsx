@@ -103,6 +103,8 @@ interface AppContextType {
   updateCustomGrammar: (lesson: GrammarLesson) => void;
   deleteCustomGrammar: (id: string) => void;
   clearAllCustomGrammar: () => Promise<void>;
+  clearAllContent: () => Promise<void>;
+  restoreSampleContent: () => Promise<void>;
   addFriendByCode: (code: string) => boolean;
   clearFriendMessage: () => void;
   createRoom: (hostName: string) => CallRoom;
@@ -149,14 +151,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const [assignments, setAssignments] = useState<TeacherAssignment[]>(() => {
     try {
+      const isCleared = typeof window !== 'undefined' && localStorage.getItem('tap_hunter_sample_cleared') === 'true';
       const saved = localStorage.getItem(LOCAL_STORAGE_ASSIGNMENTS_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
+        if (isCleared) return parsed;
         return [...parsed, ...DEFAULT_ASSIGNMENTS].reduce((acc: TeacherAssignment[], curr: TeacherAssignment) => {
           if (!acc.some(item => item.id === curr.id)) acc.push(curr);
           return acc;
         }, []);
       }
+      if (isCleared) return [];
     } catch {}
     return DEFAULT_ASSIGNMENTS;
   });
@@ -678,7 +683,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const clearAllTeacherAssignments = async () => {
     setAssignments([]);
-    try { localStorage.removeItem(LOCAL_STORAGE_ASSIGNMENTS_KEY); } catch {}
+    try {
+      localStorage.setItem('tap_hunter_sample_cleared', 'true');
+      localStorage.setItem(LOCAL_STORAGE_ASSIGNMENTS_KEY, JSON.stringify([]));
+    } catch {}
     apiService.clearAllAssignments().catch(() => {});
   };
 
@@ -829,8 +837,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const clearAllCustomGrammar = async () => {
     setCustomGrammar([]);
-    try { localStorage.removeItem(LOCAL_STORAGE_CUSTOM_GRAMMAR_KEY); } catch {}
+    try { localStorage.setItem(LOCAL_STORAGE_CUSTOM_GRAMMAR_KEY, JSON.stringify([])); } catch {}
     apiService.clearAllCustomGrammar().catch(() => {});
+  };
+
+  const clearAllContent = async () => {
+    setAssignments([]);
+    setCustomWords([]);
+    setCustomGrammar([]);
+    try {
+      localStorage.setItem('tap_hunter_sample_cleared', 'true');
+      localStorage.setItem(LOCAL_STORAGE_ASSIGNMENTS_KEY, JSON.stringify([]));
+      localStorage.setItem(LOCAL_STORAGE_CUSTOM_WORDS_KEY, JSON.stringify([]));
+      localStorage.setItem(LOCAL_STORAGE_CUSTOM_GRAMMAR_KEY, JSON.stringify([]));
+    } catch {}
+    apiService.clearAllContent().catch(() => {});
+  };
+
+  const restoreSampleContent = async () => {
+    try {
+      localStorage.removeItem('tap_hunter_sample_cleared');
+      localStorage.setItem(LOCAL_STORAGE_ASSIGNMENTS_KEY, JSON.stringify(DEFAULT_ASSIGNMENTS));
+    } catch {}
+    setAssignments(DEFAULT_ASSIGNMENTS);
   };
 
   const addCustomGrammarBatch = async (lessonsData: Omit<GrammarLesson, 'id'>[]): Promise<number> => {
@@ -1098,6 +1127,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         updateCustomGrammar,
         deleteCustomGrammar,
         clearAllCustomGrammar,
+        clearAllContent,
+        restoreSampleContent,
         addFriendByCode,
         clearFriendMessage,
         createRoom,

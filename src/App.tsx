@@ -111,7 +111,7 @@ function MainApp() {
 
         {activeTab === 'dict' && <DictionaryScreen />}
 
-        {activeTab === 'teacher' && (
+        {activeTab === 'teacher' && (currentUser.role === 'TEACHER' || currentUser.role === 'ADMIN') && (
           <TeacherPortalScreen
             onSwitchToStudentRole={() => {
               setRole('STUDENT');

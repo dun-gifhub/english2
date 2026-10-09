@@ -2,8 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
+import http from 'http';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import { WebSocketServer, WebSocket } from 'ws';
 import { pool, initDatabase, getDatabaseStatus } from './src/server/db.js';
 
 dotenv.config();
@@ -1244,8 +1246,213 @@ app.post('/api/custom-grammar/batch', async (req, res) => {
   }
 });
 
+// Clear ALL sample knowledge and data (quizzes, words, grammar)
+app.delete('/api/all-content', async (_req, res) => {
+  try {
+    if (pool && getDatabaseStatus().isConnected) {
+      try {
+        await pool.query('DELETE FROM assignments');
+        await pool.query('DELETE FROM custom_words');
+        await pool.query('DELETE FROM custom_grammar');
+      } catch (err: any) {
+        console.warn('[Server] DB clear all content warning:', err.message);
+      }
+    }
+    memAssignments.clear();
+    memWords.clear();
+    memGrammar.clear();
+    res.json({ success: true, message: 'Đã làm trống toàn bộ dữ liệu đề thi, từ mới và ngữ pháp.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ----------------- WEBSOCKET CALL ROOM SIGNALING ----------------- //
+interface CallPeer {
+  ws: WebSocket;
+  uid: string;
+  displayName: string;
+  role: string;
+  avatarColor: string;
+  isMicOn: boolean;
+  isCameraOn: boolean;
+  isScreenSharing: boolean;
+  joinedAt: number;
+}
+
+const callRooms = new Map<string, Map<string, CallPeer>>();
+
+function setupCallWebSocket(server: http.Server) {
+  const wss = new WebSocketServer({ server, path: '/ws/call' });
+
+  wss.on('connection', (ws: WebSocket) => {
+    let currentRoomCode: string | null = null;
+    let currentUid: string | null = null;
+
+    ws.on('message', (rawData: any) => {
+      try {
+        const data = JSON.parse(rawData.toString());
+        const { type } = data;
+
+        if (type === 'join-room') {
+          const { roomCode, user } = data;
+          if (!roomCode || !user || !user.uid) return;
+
+          currentRoomCode = roomCode;
+          currentUid = user.uid;
+
+          if (!callRooms.has(roomCode)) {
+            callRooms.set(roomCode, new Map());
+          }
+          const room = callRooms.get(roomCode)!;
+
+          const peer: CallPeer = {
+            ws,
+            uid: user.uid,
+            displayName: user.displayName || 'Thành Viên',
+            role: user.role || 'STUDENT',
+            avatarColor: user.avatarColor || '#00E5FF',
+            isMicOn: !!data.isMicOn,
+            isCameraOn: !!data.isCameraOn,
+            isScreenSharing: false,
+            joinedAt: Date.now()
+          };
+
+          // Inform existing peers in this room
+          room.forEach((existingPeer, existingUid) => {
+            if (existingUid !== user.uid && existingPeer.ws.readyState === WebSocket.OPEN) {
+              existingPeer.ws.send(
+                JSON.stringify({
+                  type: 'peer-joined',
+                  peer: {
+                    uid: peer.uid,
+                    displayName: peer.displayName,
+                    role: peer.role,
+                    avatarColor: peer.avatarColor,
+                    isMicOn: peer.isMicOn,
+                    isCameraOn: peer.isCameraOn,
+                    isScreenSharing: peer.isScreenSharing
+                  }
+                })
+              );
+            }
+          });
+
+          room.set(user.uid, peer);
+
+          // Send current peers to the joiner
+          const existingPeersList = Array.from(room.values())
+            .filter((p) => p.uid !== user.uid)
+            .map((p) => ({
+              uid: p.uid,
+              displayName: p.displayName,
+              role: p.role,
+              avatarColor: p.avatarColor,
+              isMicOn: p.isMicOn,
+              isCameraOn: p.isCameraOn,
+              isScreenSharing: p.isScreenSharing
+            }));
+
+          ws.send(
+            JSON.stringify({
+              type: 'room-state',
+              roomCode,
+              peers: existingPeersList
+            })
+          );
+        } else if (type === 'signal') {
+          // Relay WebRTC signal (offer/answer/ice-candidate) to target peer
+          const { targetUid, signal, fromUid, fromUser } = data;
+          if (currentRoomCode && callRooms.has(currentRoomCode)) {
+            const targetPeer = callRooms.get(currentRoomCode)?.get(targetUid);
+            if (targetPeer && targetPeer.ws.readyState === WebSocket.OPEN) {
+              targetPeer.ws.send(
+                JSON.stringify({
+                  type: 'signal',
+                  fromUid: fromUid || currentUid,
+                  fromUser,
+                  signal
+                })
+              );
+            }
+          }
+        } else if (type === 'media-status') {
+          const { isMicOn, isCameraOn, isScreenSharing } = data;
+          if (currentRoomCode && currentUid && callRooms.has(currentRoomCode)) {
+            const peer = callRooms.get(currentRoomCode)?.get(currentUid);
+            if (peer) {
+              if (typeof isMicOn === 'boolean') peer.isMicOn = isMicOn;
+              if (typeof isCameraOn === 'boolean') peer.isCameraOn = isCameraOn;
+              if (typeof isScreenSharing === 'boolean') peer.isScreenSharing = isScreenSharing;
+
+              const broadcastPayload = JSON.stringify({
+                type: 'media-status-update',
+                uid: currentUid,
+                isMicOn: peer.isMicOn,
+                isCameraOn: peer.isCameraOn,
+                isScreenSharing: peer.isScreenSharing
+              });
+
+              callRooms.get(currentRoomCode)?.forEach((p) => {
+                if (p.ws.readyState === WebSocket.OPEN) {
+                  p.ws.send(broadcastPayload);
+                }
+              });
+            }
+          }
+        } else if (type === 'chat-message') {
+          if (currentRoomCode && callRooms.has(currentRoomCode)) {
+            const broadcastPayload = JSON.stringify({
+              type: 'chat-message',
+              message: data.message
+            });
+            callRooms.get(currentRoomCode)?.forEach((p) => {
+              if (p.ws.readyState === WebSocket.OPEN) {
+                p.ws.send(broadcastPayload);
+              }
+            });
+          }
+        } else if (type === 'leave-room') {
+          handleLeave();
+        }
+      } catch (err) {
+        console.warn('[WS Call] Message parse error:', err);
+      }
+    });
+
+    const handleLeave = () => {
+      if (currentRoomCode && currentUid && callRooms.has(currentRoomCode)) {
+        const room = callRooms.get(currentRoomCode)!;
+        room.delete(currentUid);
+
+        const leavePayload = JSON.stringify({
+          type: 'peer-left',
+          uid: currentUid
+        });
+        room.forEach((p) => {
+          if (p.ws.readyState === WebSocket.OPEN) {
+            p.ws.send(leavePayload);
+          }
+        });
+
+        if (room.size === 0) {
+          callRooms.delete(currentRoomCode);
+        }
+        currentRoomCode = null;
+        currentUid = null;
+      }
+    };
+
+    ws.on('close', handleLeave);
+    ws.on('error', handleLeave);
+  });
+}
+
 // ----------------- VITE / STATIC SERVING ----------------- //
 async function startServer() {
+  const server = http.createServer(app);
+  setupCallWebSocket(server);
+
   const distPath = path.resolve(__dirname, 'dist');
   const distIndexPath = path.join(distPath, 'index.html');
   const hasDist = fs.existsSync(distIndexPath);
@@ -1254,7 +1461,7 @@ async function startServer() {
     console.log('[Server] Đang phục vụ gói tĩnh Production từ:', distPath);
     app.use(express.static(distPath));
     app.use((req, res, next) => {
-      if (req.method === 'GET' && !req.path.startsWith('/api')) {
+      if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/ws')) {
         return res.sendFile(distIndexPath, (err) => {
           if (err) {
             console.error('[Server] Lỗi gửi dist/index.html:', err);
@@ -1268,7 +1475,6 @@ async function startServer() {
     if (isProduction) {
       console.warn('[Server] ⚠️ CẢNH BÁO: Không tìm thấy dist/index.html trên máy chủ Render.');
       console.warn('[Server] -> Đang tự động kích hoạt Vite on-the-fly middleware để ứng dụng hoạt động ngay mà không bị lỗi ENOENT!');
-      console.warn('[Server] -> Mẹo: Trên Render Dashboard, bạn có thể chỉnh Build Command thành: npm install && npm run build để tối ưu tốc độ tải.');
     } else {
       console.log('[Server] Đang chạy chế độ Development với Vite middleware.');
     }
@@ -1279,7 +1485,7 @@ async function startServer() {
     });
     app.use(vite.middlewares);
     app.use(async (req, res, next) => {
-      if (req.method !== 'GET' || req.path.startsWith('/api')) return next();
+      if (req.method !== 'GET' || req.path.startsWith('/api') || req.path.startsWith('/ws')) return next();
       const url = req.originalUrl;
       try {
         let template = await fs.promises.readFile(path.resolve(__dirname, 'index.html'), 'utf-8');
@@ -1291,9 +1497,10 @@ async function startServer() {
     });
   }
 
-  app.listen(port, '0.0.0.0', () => {
+  server.listen(port, '0.0.0.0', () => {
     console.log(`[Tap Hunter] Server listening on http://0.0.0.0:${port}`);
     console.log(`[Neon DB] Status: ${getDatabaseStatus().message}`);
+    console.log(`[WS Call] Real-time calling server ready on /ws/call`);
   });
 }
 

@@ -255,6 +255,15 @@ export const apiService = {
     }
   },
 
+  async clearAllContent(): Promise<boolean> {
+    try {
+      const res = await fetch('/api/all-content', { method: 'DELETE' });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
   // Teacher Passcode Verification (Dynamic)
   async verifyTeacherPasscode(passcode: string): Promise<{ valid: boolean; error?: string }> {
     try {

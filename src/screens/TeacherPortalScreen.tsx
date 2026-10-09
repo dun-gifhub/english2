@@ -73,6 +73,8 @@ export const TeacherPortalScreen: React.FC<TeacherPortalScreenProps> = ({
     updateCustomGrammar,
     deleteCustomGrammar,
     clearAllCustomGrammar,
+    clearAllContent,
+    restoreSampleContent,
     onlineUsers,
     onlineCount,
     onlineStudentsCount,
@@ -91,7 +93,7 @@ export const TeacherPortalScreen: React.FC<TeacherPortalScreenProps> = ({
   const [showBatchWordModal, setShowBatchWordModal] = useState(false);
   const [showBatchExamFileModal, setShowBatchExamFileModal] = useState(false);
   const [showBatchGrammarModal, setShowBatchGrammarModal] = useState(false);
-  const [showClearConfirmModal, setShowClearConfirmModal] = useState<'words' | 'quizzes' | 'grammar' | null>(null);
+  const [showClearConfirmModal, setShowClearConfirmModal] = useState<'words' | 'quizzes' | 'grammar' | 'all' | null>(null);
   const [showReputableExamModal, setShowReputableExamModal] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<TeacherAssignment | null>(null);
   const [previewAssignment, setPreviewAssignment] = useState<TeacherAssignment | null>(null);
@@ -672,6 +674,32 @@ export const TeacherPortalScreen: React.FC<TeacherPortalScreenProps> = ({
               K{g}
             </button>
           ))}
+        </div>
+
+        {/* Global Wipe / Reset Action Buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setShowClearConfirmModal('all')}
+            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#EF476F]/15 hover:bg-[#EF476F]/25 text-[#EF476F] border border-[#EF476F]/40 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+            title="Làm trống toàn bộ hệ thống để bắt đầu nhập liệu bài giảng riêng"
+          >
+            <Trash2 size={13} />
+            <span>Làm Trống Tất Cả</span>
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              if (window.confirm("Khôi phục lại danh sách đề thi và ngữ pháp mẫu mặc định?")) {
+                await restoreSampleContent();
+              }
+            }}
+            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#131F2E] hover:bg-[#27384E] text-[#778DA9] hover:text-white border border-[#27384E] flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Khôi phục lại dữ liệu bài mẫu ban đầu"
+          >
+            <RotateCcw size={13} />
+            <span className="hidden sm:inline">Khôi Phục Mẫu</span>
+          </button>
         </div>
       </div>
 
@@ -2975,6 +3003,7 @@ export const TeacherPortalScreen: React.FC<TeacherPortalScreenProps> = ({
                   {showClearConfirmModal === 'words' && 'Xác Nhận Xóa Tất Cả Từ Mới?'}
                   {showClearConfirmModal === 'quizzes' && 'Xác Nhận Xóa Tất Cả Đề Thi?'}
                   {showClearConfirmModal === 'grammar' && 'Xác Nhận Xóa Tất Cả Ngữ Pháp?'}
+                  {showClearConfirmModal === 'all' && 'Làm Trống Toàn Bộ Hệ Thống?'}
                 </h3>
                 <p className="text-xs text-[#778DA9]">
                   Hành động này không thể hoàn tác!
@@ -2998,6 +3027,21 @@ export const TeacherPortalScreen: React.FC<TeacherPortalScreenProps> = ({
                   Bạn có chắc chắn muốn xóa toàn bộ <strong className="text-white">{customGrammar.length}</strong> chuyên đề ngữ pháp do giáo viên đã thêm?
                 </p>
               )}
+              {showClearConfirmModal === 'all' && (
+                <div className="space-y-1">
+                  <p>
+                    Bạn có chắc chắn muốn <strong className="text-[#EF476F]">LÀM TRỐNG TOÀN BỘ</strong> dữ liệu kiến thức mẫu trên hệ thống bao gồm:
+                  </p>
+                  <ul className="list-disc pl-4 space-y-0.5 text-white/90">
+                    <li>Toàn bộ <strong className="text-[#00E5FF]">{assignments.length}</strong> đề thi & bài tập trắc nghiệm mẫu</li>
+                    <li>Toàn bộ <strong className="text-[#00E5FF]">{customWords.length}</strong> từ mới tự biên soạn</li>
+                    <li>Toàn bộ <strong className="text-[#00E5FF]">{customGrammar.length}</strong> chuyên đề ngữ pháp</li>
+                  </ul>
+                  <p className="text-[11px] text-[#778DA9] pt-1 italic">
+                    Hệ thống sẽ được đưa về trạng thái trống hoàn toàn để thầy cô bắt đầu nhập liệu bài giảng riêng!
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2.5 pt-1">
@@ -3019,6 +3063,8 @@ export const TeacherPortalScreen: React.FC<TeacherPortalScreenProps> = ({
                     await clearAllTeacherAssignments();
                   } else if (target === 'grammar') {
                     await clearAllCustomGrammar();
+                  } else if (target === 'all') {
+                    await clearAllContent();
                   }
                 }}
                 className="flex-1 py-2.5 rounded-xl text-xs font-black text-white bg-[#EF476F] hover:bg-[#d9385d] transition-all shadow-lg shadow-[#EF476F]/25 cursor-pointer"
